@@ -1,12 +1,29 @@
-# Этап 1: Сборка
-FROM golang:latest AS builder
-WORKDIR /app
-ADD go.mod .
+# Шаг 1: Используем базовый образ Go на основе Alpine для сборки приложения
+FROM golang:alpine AS builder
+# Добавляем метку для удобства идентификации этапа
+LABEL stage=gobuilder
+# Отключаем использование C-библиотек для сборки статического бинарника
+ENV CGO_ENABLED 0
+ENV GOOS linux
+# Указываем рабочую директорию для сборки
+WORKDIR /build
+# Копируем зависимости и скачиваем их в отдельный слой (оптимизация кэша)
+COPY go.mod go.sum ./
+RUN go mod download
+# Копируем исходный код проекта
 COPY . .
-RUN go build -o main main.go
+# Собираем бинарный файл приложения с оптимизацией размера
+RUN go build -ldflags="-s -w" -o /app/main .
 
-# Этап 2: Минимальный финальный образ
-FROM alpine:latest
+# Шаг 2: Используем минимальный образ Alpine для запуска приложения
+FROM alpine
+# Добавляем сертификаты для поддержки HTTPS
+RUN apk add --no-cache ca-certificates
+# Указываем рабочую директорию для приложения
 WORKDIR /app
-COPY --from=builder /app/main /app/main
-CMD ["./main"]
+# Копируем собранный бинарный файл из builder-образа в конечный образ
+COPY --from=builder /app/main .
+# Открываем порт 8080
+EXPOSE 8080
+# Устанавливаем команду для запуска приложения
+CMD ["/app/main"]
