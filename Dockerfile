@@ -1,13 +1,12 @@
 # Этап 1: Сборка
 FROM golang:latest AS builder
 WORKDIR /app
+ADD go.mod .
 COPY . .
-RUN GOOS=linux GOARCH=amd64 go build -o main .
+RUN go build -o main main.go
 
 # Этап 2: Минимальный финальный образ
 FROM alpine:latest
 WORKDIR /app
-COPY --from=builder /app/main .
-RUN apk add --no-cache libc6-compat
-EXPOSE 8080
+COPY --from=builder /app/main /app/main
 CMD ["./main"]
